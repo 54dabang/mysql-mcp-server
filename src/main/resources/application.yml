@@ -1,0 +1,54 @@
+server:
+  port: 8083
+spring:
+  application:
+    name: mysql-mcp-server
+  main:
+    banner-mode: off
+    #web-application-type: none
+    web-application-type: SERVLET
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://localhost:3306/ledger
+    username: root
+    password: oneapimmysql
+    database: ledger
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000
+      connection-timeout: 20000
+      connection-test-query: SELECT 1
+      pool-name: mcp-server-pool
+      max-lifetime: 1800000
+      validation-timeout: 5000
+      connection-init-sql: SET NAMES utf8mb4;
+
+
+  # MCP 配置
+  ai:
+    mcp:
+      server:
+        enabled: true
+        name: mysql_mcp_server
+        version: 1.0.0
+        sse-endpoint: /api/v1/sse
+        sse-message-endpoint: /api/v1/mcp
+        capabilitites:
+          tool: true
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.zcckj.mcpserver: DEBUG
+    org.springframework: INFO
+    org.springframework.boot.context.config: DEBUG
+    org.springframework.core.env: DEBUG
+
+  file:
+    name: logs/mcp-server.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
