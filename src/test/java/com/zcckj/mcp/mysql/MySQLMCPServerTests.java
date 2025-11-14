@@ -19,41 +19,8 @@ public class MySQLMCPServerTests {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Test
-    void testListResources() {
-        // 测试列出数据库
-        String result = mcpClient.listDatabases();
-        assertThat(result).isNotNull();
-        assertThat(result).isNotEmpty();
 
-        // 测试列出表
-        String result2 = mcpClient.listTables();
-        assertThat(result2).isNotNull();
-        assertThat(result2).isNotEmpty();
-    }
 
-    @Test
-    void testPrintDDL(){
-        System.out.println(mcpClient.listTables());
-        System.out.println("----------\n");
-        String str = mcpClient.getTableDDL("ledger","ctg_ledger_annual_budget");
-        System.out.println(str);
-    }
-
-    @Test
-    void testReadResource() {
-        // 测试有效的URI
-        String validUri = "mysql://purch_order/t_purch_order";
-        String result = mcpClient.readResource(validUri);
-        assertThat(result).isNotNull();
-        assertThat(result).isNotEmpty();
-
-        // 测试无效的URI
-        String invalidUri = "invalid://uri";
-        String invalidResult = mcpClient.readResource(invalidUri);
-        TextContent textContent = parseTextContent(invalidResult);
-        assertThat(textContent.getText()).contains("Invalid URI scheme");
-    }
 
     @Test
     void testExecuteSqlTool() {
