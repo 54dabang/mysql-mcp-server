@@ -33,7 +33,10 @@ public class MySQLMCPServerTests {
         assertThat(textContent.getText()).isNotNull();
     }
 
-
+    @Test
+    void printDDL(){
+        System.out.println(mcpClient.getAvailableTableSchemas());
+    }
 
     @Test
     void testInvalidQuery() {

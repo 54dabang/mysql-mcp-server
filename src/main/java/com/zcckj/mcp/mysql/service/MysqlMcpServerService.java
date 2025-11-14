@@ -6,6 +6,7 @@ import com.zcckj.mcp.mysql.model.DbTool;
 import com.zcckj.mcp.mysql.model.Resource;
 import com.zcckj.mcp.mysql.model.TextContent;
 import com.zcckj.mcp.mysql.utils.JsonUtils;
+import com.zcckj.mcp.mysql.vo.TableSchemaVO;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.expression.Expression;
 import org.springframework.ai.tool.annotation.Tool;
@@ -78,6 +79,19 @@ public class MysqlMcpServerService {
         }
     }
 
+    @Tool(description = "获取所有可以读取的表schema信息",
+            name = "get_available_table_schemas")
+    public String getAvailableTableSchemas(){
+        List<TableSchemaVO> tableSchemaVOList =new ArrayList<>();
+
+        dataBaseLimitConfig.getReadOnlyTables().stream()
+                .forEach(t->{
+                    String ddl = getTableDDL(databaseConfig.getDatabase(),t);
+                    tableSchemaVOList.add(TableSchemaVO.builder().tableName(t).ddl(ddl).build());
+                });
+        return JsonUtils.toJsonString(tableSchemaVOList);
+    }
+
     @Tool(description = "执行SQL查询语句,提交参数为独立的sql,适用于执行复杂的数据查询和统计分析。",
             name = "execute_tool")
     public String executeSql(
@@ -90,7 +104,7 @@ public class MysqlMcpServerService {
         if (!isReadOnlySqlQuery(sql)) {
             log.warn("拒绝执行非只读SQL: {}", sql);
             return JsonUtils.toJsonString(
-                    new TextContent("安全限制：仅允许执行只读查询（SELECT、SHOW、DESC、EXPLAIN），禁止任何修改操作", "text"));
+                    new TextContent("安全限制：仅允许执行只读查询（SELECT、SHOW），禁止任何修改操作", "text"));
         }
 
         try {
