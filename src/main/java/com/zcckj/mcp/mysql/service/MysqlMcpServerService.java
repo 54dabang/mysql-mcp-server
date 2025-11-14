@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -171,7 +173,9 @@ public class MysqlMcpServerService {
     private String validateAndLimitSql(String sql) {
         try {
             // 解析SQL
-            Statement statement = CCJSqlParserUtil.parse(sql);
+            ByteArrayInputStream in = new ByteArrayInputStream(sql.getBytes(StandardCharsets.UTF_8));
+            Statement statement = CCJSqlParserUtil.parse(in, StandardCharsets.UTF_8.name());
+
 
             if (!(statement instanceof Select)) {
                 return null;

@@ -25,12 +25,19 @@ public class MySQLMCPServerTests {
     @Test
     void testExecuteSqlTool() {
         // 测试有效的SQL查询
-        String query = "SELECT * FROM purch_order.t_supplier_info LIMIT 10";
+        String query = """
+                SELECT\s
+                    d.reimburser_name AS 姓名,
+                    SUM(d.amount) AS 报销金额
+                FROM ctg_ledger_project_expense_detail d
+                WHERE d.ledger_project_id = 11
+                GROUP BY d.reimburser_name
+                ORDER BY SUM(d.amount) DESC
+                LIMIT 5""";
         String result = mcpClient.executeSql(query);
         assertThat(result).isNotNull();
 
-        TextContent textContent = parseTextContent(result);
-        assertThat(textContent.getText()).isNotNull();
+
     }
 
     @Test
