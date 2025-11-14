@@ -37,6 +37,10 @@ spring:
         sse-message-endpoint: /api/v1/mcp
         capabilitites:
           tool: true
+config:
+  database:
+    read-only-tables: ctg_ledger_annual_budget,ctg_ledger_project,ctg_ledger_project_expense_detail,ctg_ledger_project_user,sys_user,sys_dept
+    read-rows-limit: 200
 
 # 日志配置
 logging:

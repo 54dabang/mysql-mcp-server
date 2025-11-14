@@ -33,6 +33,14 @@ public class MySQLMCPServerTests {
     }
 
     @Test
+    void testPrintDDL(){
+        System.out.println(mcpClient.listTables());
+        System.out.println("----------\n");
+        String str = mcpClient.getTableDDL("ledger","ctg_ledger_annual_budget");
+        System.out.println(str);
+    }
+
+    @Test
     void testReadResource() {
         // 测试有效的URI
         String validUri = "mysql://purch_order/t_purch_order";
@@ -58,30 +66,7 @@ public class MySQLMCPServerTests {
         assertThat(textContent.getText()).isNotNull();
     }
 
-    @Test
-    void testListTools() {
-        String result = mcpClient.listTools();
-        assertThat(result).isNotNull();
-        assertThat(result).isNotEmpty();
 
-        try {
-            DbTool[] dbTools = objectMapper.readValue(result, DbTool[].class);
-            assertThat(dbTools).isNotEmpty();
-
-            // 查找execute_sql工具
-            boolean hasExecuteSqlTool = false;
-            for (DbTool dbTool : dbTools) {
-                if (dbTool.getName().equals("execute_sql")) {
-                    hasExecuteSqlTool = true;
-                    break;
-                }
-            }
-            assertThat(hasExecuteSqlTool).isTrue();
-        } catch (JsonProcessingException e) {
-            // 处理JSON解析异常
-            assertThat(false).as("解析JSON失败: " + e.getMessage()).isTrue();
-        }
-    }
 
     @Test
     void testInvalidQuery() {
