@@ -97,7 +97,7 @@ public class MysqlMcpServerService {
     @Tool(description = "执行SQL查询语句,提交参数为独立的sql,适用于执行复杂的数据查询和统计分析。",
             name = "execute_tool")
     public String executeSql(
-            @ToolParam(description = "SQL查询语句。支持的操作：SELECT（数据查询）")
+            @ToolParam(description = "SQL查询语句。支持的操作：SELECT（数据查询）、SHOW（仅允许只读子集）")
             String sql) {
 
         log.info("准备执行SQL: {}", sql);
@@ -106,7 +106,7 @@ public class MysqlMcpServerService {
         if (!isReadOnlySqlQuery(sql)) {
             log.warn("拒绝执行非只读SQL: {}", sql);
             return JsonUtils.toJsonString(
-                    new TextContent("安全限制：仅允许执行只读查询（SELECT、SHOW），禁止任何修改操作", "text"));
+                    new TextContent("安全限制：仅允许执行只读查询（SELECT、SHOW 子集），禁止任何修改操作", "text"));
         }
 
         try {
@@ -151,17 +151,49 @@ public class MysqlMcpServerService {
                 return JsonUtils.toJsonString(new TextContent(result.toString(), "text"));
             }
 
-            // 其他只读命令（SHOW、DESC、EXPLAIN等）
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-            String result = JsonUtils.toJsonString(rows);
+            /* ---------- 2. SHOW 分支（新增白名单与禁用逻辑） ---------- */
+            if (normalizedQuery.startsWith("SHOW")) {
+                /* 2-1 显式禁用 SHOW DATABASES */
+                if (normalizedQuery.matches("SHOW\\s+DATABASES.*")) {
+                    log.warn("尝试执行被禁用的 SHOW DATABASES: {}", sql);
+                    return JsonUtils.toJsonString(
+                            new TextContent("安全限制：SHOW DATABASES 被禁用", "text"));
+                }
 
-            log.info("成功执行SQL查询");
-            return JsonUtils.toJsonString(new TextContent(result, "text"));
+                /* 2-2 SHOW TABLES -> 只返回白名单表 */
+                if (normalizedQuery.matches("SHOW\\s+TABLES.*")) {
+                    List<String> allowed = dataBaseLimitConfig.getReadOnlyTables();
+                    /* 构造 IN 子句 */
+                    String inClause = allowed.stream()
+                            .map(t -> "'" + t + "'")
+                            .collect(Collectors.joining(","));
+                    String filtered = "SELECT TABLE_NAME as `Tables_in_" + "db" + "` " +
+                            "FROM information_schema.TABLES " +
+                            "WHERE TABLE_SCHEMA = '" + databaseConfig.getDatabase() + "' " +
+                            "  AND TABLE_NAME IN (" + inClause + ")";
+                    List<Map<String, Object>> rows = jdbcTemplate.queryForList(filtered);
+                    return JsonUtils.toJsonString(new TextContent(JsonUtils.toJsonString(rows), "text"));
+                }
+
+                /* 2-3 其它 SHOW 语句（含具体表）走表名校验 */
+                String validatedShowSql = validateShowSql(sql);
+                if (validatedShowSql == null) {
+                    log.warn("SHOW 语句访问了未授权的表: {}", sql);
+                    return JsonUtils.toJsonString(
+                            new TextContent("安全限制：SHOW 语句只能操作授权的表。授权表列表: " +
+                                    String.join(", ", dataBaseLimitConfig.getReadOnlyTables()), "text"));
+                }
+                List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+                return JsonUtils.toJsonString(new TextContent(JsonUtils.toJsonString(rows), "text"));
+            }
+
+            /* ---------- 3. 其余只读命令（DESC/EXPLAIN 等）直接放行 ---------- */
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+            return JsonUtils.toJsonString(new TextContent(JsonUtils.toJsonString(rows), "text"));
 
         } catch (Exception e) {
             log.error("执行SQL时发生错误: {}", sql, e);
-            return JsonUtils.toJsonString(
-                    new TextContent("SQL执行错误: " + e.getMessage(), "text"));
+            return JsonUtils.toJsonString(new TextContent("SQL执行错误: " + e.getMessage(), "text"));
         }
     }
 
@@ -427,5 +459,37 @@ public class MysqlMcpServerService {
         }
 
         return true;
+    }
+
+    /**
+     * 校验 SHOW 语句是否只访问了允许的表
+     * 仅处理 SHOW COLUMNS FROM、SHOW INDEX FROM、SHOW CREATE TABLE 等带表名的场景
+     */
+    private String validateShowSql(String sql) {
+        if (sql == null || !sql.trim().toLowerCase().startsWith("show")) {
+            return null;
+        }
+        String lower = sql.trim().toLowerCase();
+        String tableName = null;
+
+        if (lower.matches("show\\s+(create|columns|index|keys|table status)\\s+(from|table)\\s+[`']?(\\w+)[`']?.*")) {
+            tableName = lower.replaceAll("show\\s+(create|columns|index|keys|table status)\\s+(from|table)\\s+[`']?(\\w+)[`']?.*", "$3");
+        }
+
+        if (tableName == null) {
+            // 不带表名的 SHOW 语句，此处已只剩 SHOW STATUS/SHOW VARIABLES 等，放行
+            return sql;
+        }
+
+        Set<String> allowedTablesLower = dataBaseLimitConfig.getReadOnlyTables()
+                .stream()
+                .map(String::toLowerCase)
+                .collect(Collectors.toSet());
+
+        if (!allowedTablesLower.contains(tableName.toLowerCase())) {
+            log.warn("SHOW 语句尝试访问未授权表: {}", tableName);
+            return null;
+        }
+        return sql;
     }
 }

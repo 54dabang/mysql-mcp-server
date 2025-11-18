@@ -41,6 +41,18 @@ public class MySQLMCPServerTests {
     }
 
     @Test
+    void testExecuteSelectSqlTool() {
+        // 测试有效的SQL查询
+        String query = """
+                show tables
+                """;
+        String result = mcpClient.executeSql(query);
+        System.out.println(result);
+        assertThat(result).isNotNull();
+
+
+    }
+    @Test
     void printDDL(){
         System.out.println(mcpClient.getAvailableTableSchemas());
     }
