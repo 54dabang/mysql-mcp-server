@@ -187,9 +187,12 @@ public class MysqlMcpServerService {
                 return JsonUtils.toJsonString(new TextContent(JsonUtils.toJsonString(rows), "text"));
             }
 
+            return JsonUtils.toJsonString(
+                    new TextContent(" 安全限制，不支持其他操作","text"));
+
             /* ---------- 3. 其余只读命令（DESC/EXPLAIN 等）直接放行 ---------- */
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-            return JsonUtils.toJsonString(new TextContent(JsonUtils.toJsonString(rows), "text"));
+           /* List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+            return JsonUtils.toJsonString(new TextContent(JsonUtils.toJsonString(rows), "text"));*/
 
         } catch (Exception e) {
             log.error("执行SQL时发生错误: {}", sql, e);
