@@ -1,5 +1,5 @@
 server:
-  port: 8083
+  port: ${SERVER_PORT:8083}
 spring:
   application:
     name: mysql-mcp-server
@@ -9,10 +9,10 @@ spring:
     web-application-type: SERVLET
   # 数据库配置
   datasource:
-    url: jdbc:mysql://localhost:3306/ledger
-    username: root
-    password: oneapimmysql
-    database: ledger
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:ledger}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=${MYSQL_SERVER_TIMEZONE:Asia/Shanghai}&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:oneapimmysql}
+    database: ${SPRING_DATASOURCE_DATABASE:${MYSQL_DATABASE:ledger}}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       minimum-idle: 5
@@ -39,8 +39,8 @@ spring:
           tool: true
 config:
   database:
-    read-only-tables: ctg_ledger_annual_budget,ctg_ledger_project,ctg_ledger_project_expense_detail,ctg_ledger_project_user,sys_user,sys_dept
-    read-rows-limit: 200
+    read-only-tables: ${CONFIG_DATABASE_READ_ONLY_TABLES:ctg_ledger_annual_budget,ctg_ledger_project,ctg_ledger_project_expense_detail,ctg_ledger_project_user,sys_user,sys_dept}
+    read-rows-limit: ${CONFIG_DATABASE_READ_ROWS_LIMIT:200}
 
 # 日志配置
 logging:
@@ -52,7 +52,7 @@ logging:
     org.springframework.core.env: DEBUG
 
   file:
-    name: logs/mcp-server.log
+    name: ${LOG_FILE_NAME:logs/mcp-server.log}
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"

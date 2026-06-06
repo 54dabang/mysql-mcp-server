@@ -1,0 +1,29 @@
+services:
+  mysql-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mysql-mcp-server:local
+    container_name: mysql-mcp-server
+    ports:
+      - "${SERVER_PORT:-8083}:8083"
+    environment:
+      SERVER_PORT: "${SERVER_PORT:-8083}"
+      MYSQL_HOST: "${MYSQL_HOST:-host.docker.internal}"
+      MYSQL_PORT: "${MYSQL_PORT:-3306}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-ledger}"
+      MYSQL_SERVER_TIMEZONE: "${MYSQL_SERVER_TIMEZONE:-Asia/Shanghai}"
+      SPRING_DATASOURCE_URL: "${SPRING_DATASOURCE_URL:-jdbc:mysql://${MYSQL_HOST:-host.docker.internal}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-ledger}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=${MYSQL_SERVER_TIMEZONE:-Asia/Shanghai}&allowPublicKeyRetrieval=true}"
+      SPRING_DATASOURCE_USERNAME: "${SPRING_DATASOURCE_USERNAME:-root}"
+      SPRING_DATASOURCE_PASSWORD: "${SPRING_DATASOURCE_PASSWORD:-oneapimmysql}"
+      SPRING_DATASOURCE_DATABASE: "${SPRING_DATASOURCE_DATABASE:-${MYSQL_DATABASE:-ledger}}"
+      CONFIG_DATABASE_READ_ONLY_TABLES: "${CONFIG_DATABASE_READ_ONLY_TABLES:-ctg_ledger_annual_budget,ctg_ledger_project,ctg_ledger_project_expense_detail,ctg_ledger_project_user,sys_user,sys_dept}"
+      CONFIG_DATABASE_READ_ROWS_LIMIT: "${CONFIG_DATABASE_READ_ROWS_LIMIT:-200}"
+      LOG_FILE_NAME: "${LOG_FILE_NAME:-/app/logs/mcp-server.log}"
+      JAVA_OPTS: "${JAVA_OPTS:-}"
+    volumes:
+      - mysql_mcp_logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  mysql_mcp_logs:

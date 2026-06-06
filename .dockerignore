@@ -1,0 +1,14 @@
+.git
+.idea
+.vscode
+.mvn
+target
+logs
+build
+dist
+*.iml
+*.iws
+*.ipr
+.env
+*.tar
+*.log
