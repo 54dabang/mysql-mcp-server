@@ -249,6 +249,24 @@ docker save -o mysql-mcp-server-offline.tar mysql-mcp-server:offline
 shasum -a 256 mysql-mcp-server-offline.tar
 ```
 
+本次已在本机完成 `linux/arm64` 离线包构建，使用的命令如下：
+
+```bash
+docker buildx build --platform linux/arm64 -t mysql-mcp-server:offline-arm64 --load .
+docker image inspect mysql-mcp-server:offline-arm64 \
+  --format 'image={{.RepoTags}} os={{.Os}} arch={{.Architecture}} size={{.Size}}'
+docker save -o mysql-mcp-server-offline-arm64.tar mysql-mcp-server:offline-arm64
+shasum -a 256 mysql-mcp-server-offline-arm64.tar > mysql-mcp-server-offline-arm64.tar.sha256
+```
+
+验证结果：
+
+```text
+image=[mysql-mcp-server:offline-arm64] os=linux arch=arm64 size=375434058
+tar size: 371M
+sha256: bbcb14c8fd7d072eba7801caa9b422cff41956360b8e495f4a06dcede7354a23
+```
+
 离线交付通常需要准备：
 
 ```text
@@ -258,6 +276,76 @@ mysql-mcp-server-offline.tar
 
 如果目标机器希望使用 Compose 管理容器，还需要准备一个不包含 `build` 配置的离线
 Compose 文件，示例见下方。
+
+### GitHub Actions 打包离线 tar 镜像
+
+如果本机 Docker 构建较慢，或者希望在 GitHub 上统一生成离线包，可以添加
+`.github/workflows/docker-offline-tar.yml`。下面示例支持手动选择目标平台，并将 tar
+和 sha256 文件作为 workflow artifact 上传。
+
+```yaml
+name: Docker Offline Tar
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Target image platform
+        required: true
+        default: linux/arm64
+        type: choice
+        options:
+          - linux/arm64
+          - linux/amd64
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image tar
+        run: |
+          PLATFORM="${{ inputs.platform }}"
+          ARCH="${PLATFORM#linux/}"
+          IMAGE_TAG="mysql-mcp-server:offline-${ARCH}"
+          TAR_FILE="mysql-mcp-server-offline-${ARCH}.tar"
+
+          docker buildx build --platform "$PLATFORM" -t "$IMAGE_TAG" --load .
+          docker image inspect "$IMAGE_TAG" --format 'image={{.RepoTags}} os={{.Os}} arch={{.Architecture}} size={{.Size}}'
+          docker save -o "$TAR_FILE" "$IMAGE_TAG"
+          sha256sum "$TAR_FILE" > "$TAR_FILE.sha256"
+          ls -lh "$TAR_FILE" "$TAR_FILE.sha256"
+
+      - name: Upload offline tar
+        uses: actions/upload-artifact@v4
+        with:
+          name: mysql-mcp-server-offline-${{ inputs.platform == 'linux/arm64' && 'arm64' || 'amd64' }}
+          path: |
+            mysql-mcp-server-offline-*.tar
+            mysql-mcp-server-offline-*.tar.sha256
+          if-no-files-found: error
+```
+
+使用方式：
+
+```text
+GitHub 仓库页面
+  -> Actions
+  -> Docker Offline Tar
+  -> Run workflow
+  -> 选择 linux/arm64 或 linux/amd64
+  -> 下载生成的 workflow artifact
+```
 
 ### 目标机器离线导入镜像
 
@@ -276,6 +364,14 @@ sha256sum mysql-mcp-server-offline.tar
 ```
 
 macOS 上常用 `shasum -a 256`，Linux 上常用 `sha256sum`。
+
+如果使用本次生成的 `linux/arm64` 离线包，目标机器上执行：
+
+```bash
+sha256sum -c mysql-mcp-server-offline-arm64.tar.sha256
+docker load -i mysql-mcp-server-offline-arm64.tar
+docker image inspect mysql-mcp-server:offline-arm64 --format '{{.Os}}/{{.Architecture}}'
+```
 
 ### 目标机器离线运行方式一：docker run
 
@@ -301,6 +397,23 @@ docker run -d \
 
 ```bash
 docker logs -f mysql-mcp-server
+```
+
+本次 `linux/arm64` 离线包启动示例：
+
+```bash
+docker run -d \
+  --name mysql-mcp-server \
+  --restart unless-stopped \
+  -p 8083:8083 \
+  -v mysql_mcp_logs:/app/logs \
+  -e MYSQL_HOST=你的MySQL地址 \
+  -e MYSQL_PORT=3306 \
+  -e MYSQL_DATABASE=你的数据库名 \
+  -e SPRING_DATASOURCE_USERNAME=你的用户名 \
+  -e SPRING_DATASOURCE_PASSWORD=你的密码 \
+  -e SPRING_DATASOURCE_DATABASE=你的数据库名 \
+  mysql-mcp-server:offline-arm64
 ```
 
 重启：
@@ -409,6 +522,25 @@ docker run -d \
   -e SPRING_DATASOURCE_USERNAME=root \
   -e SPRING_DATASOURCE_PASSWORD=change_me \
   mysql-mcp-server:offline
+docker logs -f mysql-mcp-server
+```
+
+如果目标机器是 `aarch64` / `arm64`，可将完整顺序中的镜像标签和 tar 文件替换为本次产物：
+
+```bash
+docker load -i mysql-mcp-server-offline-arm64.tar
+docker image inspect mysql-mcp-server:offline-arm64 --format '{{.Os}}/{{.Architecture}}'
+docker run -d \
+  --name mysql-mcp-server \
+  --restart unless-stopped \
+  -p 8083:8083 \
+  -v mysql_mcp_logs:/app/logs \
+  -e MYSQL_HOST=192.168.1.100 \
+  -e MYSQL_PORT=3306 \
+  -e MYSQL_DATABASE=ledger \
+  -e SPRING_DATASOURCE_USERNAME=root \
+  -e SPRING_DATASOURCE_PASSWORD=change_me \
+  mysql-mcp-server:offline-arm64
 docker logs -f mysql-mcp-server
 ```
 
